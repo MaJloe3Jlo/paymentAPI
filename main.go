@@ -1,15 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/MaJloe3Jlo/mapisacard_test/lib"
 	"log"
 	"net/http"
-	"github.com/MaJloe3Jlo/mapisacard_test/lib"
-	"encoding/json"
+	"time"
 )
 
 var (
-	Block []*lib.Block_req
+	Block  []*lib.Block_resp
 	Charge []*lib.Charge_req
 )
 
@@ -27,23 +28,64 @@ func index(w http.ResponseWriter, req *http.Request) {
 func block(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 
-	var req_b lib.Block_req
-	var resp_b *lib.Block_resp
+	var reqBlock lib.Block_req
+	var respBlock *lib.Block_resp
 
-	err := decoder.Decode(&req_b)
+	err := decoder.Decode(&reqBlock)
 	if err != nil {
 		panic(err)
 	}
 	defer req.Body.Close()
 
-	resp_b = lib.Validate(req_b)
+	respBlock = lib.Validate(reqBlock)
+	if respBlock.DealId != -1 {
+		Block = append(Block, respBlock)
+	}
 
-	fmt.Fprint(w, resp_b)
-	fmt.Fprint(w, req_b)
+	fmt.Fprint(w, reqBlock)
 
+	fmt.Fprint(w, respBlock)
+	fmt.Fprint(w,"\n")
+
+	for _, v := range Block {
+		fmt.Fprint(w, v)
+		fmt.Fprint(w,"\n")
+	}
 }
 
-
 func charge(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprint(w, "charge")
+	decoder := json.NewDecoder(req.Body)
+
+	var reqCharge lib.Charge_req
+	var respCharge *lib.Charge_resp
+
+	err := decoder.Decode(&reqCharge)
+	if err != nil {
+		panic(err)
+	}
+	defer req.Body.Close()
+
+	buf := make(chan string)
+
+	for _, v := range Block {
+		if v.DealId == reqCharge.DealId && v.Amount >= reqCharge.Amount {
+			go doReq(buf)
+			time.Sleep(1 * time.Second)
+			status := <-buf
+			respCharge.Status = status
+		} else {
+			respCharge.Status = "error"
+			respCharge.Error = "Charge not working"
+		}
+	}
+	fmt.Fprint(w, respCharge)
+}
+
+func doReq(buf chan string) {
+
+	req, err := http.Get("https://ya.ru")
+	if err != nil {
+		log.Println(err)
+	}
+	buf<-req.Status
 }

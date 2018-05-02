@@ -3,7 +3,7 @@ package lib
 //Block_req структура запроса для авторизации платежа
 type Block_req struct {
 	MerchantContactId int `json:"merchant_contact_id"`
-	Card struct{
+	Card              struct {
 		Pan    string `json:"pan"`
 		EMonth int    `json:"e_month"`
 		EYear  int    `json:"e_year"`
@@ -14,21 +14,21 @@ type Block_req struct {
 	Amount  int    `json:"amount"`
 }
 
-
 //Block_resp структура ответа на запрос для авторизации платежа
 type Block_resp struct {
-	dealId int      `json:"deal_id"`
-	error  []string `json:"error"`
+	DealId int      `json:"deal_id"`
+	Amount int      `json:"amount"`
+	Error  []string `json:"error"`
 }
 
 //Charge_req структура запроса платежа
 type Charge_req struct {
-	dealId int `json:"deal_id"`
-	amount int `json:"amount"`
+	DealId int `json:"deal_id"`
+	Amount int `json:"amount"`
 }
 
 //Charge_resp структура ответа платежа
 type Charge_resp struct {
-	status string   `json:"status"`
-	error  []string `json:"error"`
+	Status string   `json:"status"`
+	Error  string `json:"error"`
 }
