@@ -5,6 +5,15 @@ import (
 	"testing"
 )
 
+
+func TestMerchantID(t *testing.T) {
+	mid := 23434
+	val := lib.CheckMerchantId(mid)
+	if val != true {
+		t.Error("Merchant ID is wrong")
+	}
+}
+
 func TestCheckLuna(t *testing.T) {
 	pan := "5469345678901234"
 	val := lib.CheckLuna(pan)
@@ -27,6 +36,14 @@ func TestCheckHolder(t *testing.T) {
 	val := lib.CheckHolder(holder)
 	if val != true {
 		t.Error("Cardholder is wrong")
+	}
+}
+
+func TestCheckCVV(t *testing.T) {
+	cvv := 345
+	val := lib.CheckCvv(cvv)
+	if val != true {
+		t.Error("CVV code is wrong")
 	}
 }
 

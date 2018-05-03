@@ -29,6 +29,6 @@ type Charge_req struct {
 
 //Charge_resp структура ответа платежа
 type Charge_resp struct {
-	Status string   `json:"status"`
+	Status string `json:"status"`
 	Error  string `json:"error"`
 }

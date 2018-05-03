@@ -112,7 +112,7 @@ func CheckHolder(holder string) bool {
 
 //CheckCVV - метод проверки CVV
 func CheckCvv(cvv int) bool {
-	if cvv != 0 && cvv >= 100 && cvv <=999 {
+	if cvv != 0 && cvv >= 100 && cvv <= 999 {
 		return true
 	} else {
 		return false
