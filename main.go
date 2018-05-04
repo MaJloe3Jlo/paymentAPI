@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/MaJloe3Jlo/mapisacard_test/lib"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 )
 
 //Переменные слайсов запросов Block и Charge
@@ -20,6 +22,7 @@ func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/block/", block)
 	http.HandleFunc("/charge/", charge)
+	log.Println("Server started at http://localhost:7000")
 	log.Println("POST: methods /block/, /charge/; contentType: application/json")
 	log.Println("control json-requests look in path ./jsons")
 	log.Println("to test app you can use curl or postman")
@@ -28,21 +31,56 @@ func main() {
 
 //index - метод заглушка всегда возвращает 403
 func index(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusForbidden)
 	fmt.Fprint(w, http.StatusForbidden)
 }
 
 //block - метод блокирует средства для списание на виртуальной карте
 func block(w http.ResponseWriter, req *http.Request) {
 	log.Print("Block method. ")
-	decoder := json.NewDecoder(req.Body)
-
 	var reqBlock lib.BlockRequest
 	var respBlock *lib.BlockResponse
 
-	err := decoder.Decode(&reqBlock)
-	fmt.Println(err)
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
+		log.Println(err.Error())
+	}
+	err = json.Unmarshal(body, &reqBlock)
+	if !strings.Contains(string(body), "merchant_contact_id") {
+		log.Print("JSON not correct: field merchant_contact_id doesn't exist")
+		fmt.Fprint(w, "JSON not correct: field merchant_contact_id doesn't exist")
 		return
+	} else if !strings.Contains(string(body), "card") {
+		log.Print("JSON not correct: field card doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "pan") {
+		log.Print("JSON not correct: field pan doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "e_month") {
+		log.Print("JSON not correct: field e_month doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "e_year") {
+		log.Print("JSON not correct: field e_year doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "cvv") {
+		log.Print("JSON not correct: field cvv doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "holder") {
+		log.Print("JSON not correct: field holder doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "order_id") {
+		log.Print("JSON not correct: field order_id doesn't exist")
+	} else if !strings.Contains(string(body), "amount") {
+		log.Print("JSON not correct: field amount doesn't exist")
+		return
+	}
+
+	if err != nil {
+		file, errFile := ioutil.ReadFile("./jsons/block.json")
+		if errFile != nil {
+			log.Println(errFile)
+		}
+		defer log.Print("JSON isn't correct: " + err.Error() + ". JSON example: " + string(file))
 	}
 	defer req.Body.Close()
 
@@ -52,21 +90,36 @@ func block(w http.ResponseWriter, req *http.Request) {
 		Block = append(Block, respBlock)
 	} else {
 		log.Print("JSON request isn't valid")
+		respBlock.Error = append(respBlock.Error, err.Error())
 	}
+
+	log.Println(reqBlock)
 
 }
 
 //charge - метод списания средств с виртуальной карты авторизованных методом block
 func charge(w http.ResponseWriter, req *http.Request) {
 	log.Print("Charge method.")
-	decoder := json.NewDecoder(req.Body)
-
 	var reqCharge lib.ChargeRequest
 	var respCharge lib.ChargeResponse
-
-	err := decoder.Decode(&reqCharge)
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		panic(err)
+		log.Println(err.Error())
+	}
+	err = json.Unmarshal(body, &reqCharge)
+	if !strings.Contains(string(body), "deal_id") {
+		log.Print("JSON not correct: field deal_id doesn't exist")
+		return
+	} else if !strings.Contains(string(body), "amount") {
+		log.Print("JSON not correct: field amount doesn't exist")
+		return
+	}
+	if err != nil {
+		file, errFile := ioutil.ReadFile("./jsons/charge.json")
+		if errFile != nil {
+			log.Println(errFile)
+		}
+		defer log.Print("JSON isn't correct: " + err.Error() + ". JSON example: " + string(file))
 	}
 	defer req.Body.Close()
 
@@ -91,6 +144,13 @@ func charge(w http.ResponseWriter, req *http.Request) {
 			}
 			Charge = append(Charge, &respCharge)
 			log.Printf("DealID: %v, charge status: %s, amount balance: %v", v.DealID, respCharge.Status, v.Amount)
+			pretty, err := json.MarshalIndent(Charge, "", "    ")
+			if err != nil {
+				log.Println(err.Error())
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, string(pretty))
 		}
 	}
 }
