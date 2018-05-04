@@ -2,31 +2,30 @@ package lib
 
 import (
 	"math/rand"
-	"regexp"
-	"strings"
+	"strconv"
 	"time"
 )
 
 //Метод проверки всех полей метода Block
-func Validate(b Block_req) *Block_resp {
-	var resp Block_resp
+func Validate(b BlockRequest) *BlockResponse {
+	var resp BlockResponse
 
-	if CheckMerchantId(b.MerchantContactId) == false {
+	if CheckMerchantID(b.MerchantContactID) == false {
 		resp.Error = append(resp.Error, "Error terminal ID; ")
 	}
-	if CheckLuna(b.Card.Pan) == false {
+	if CheckLuhn(b.Card.PAN) == false {
 		resp.Error = append(resp.Error, "Error PAN number; ")
 	}
 	if CheckDate(b.Card.EMonth, b.Card.EYear) == false {
 		resp.Error = append(resp.Error, "Error date of card; ")
 	}
-	if CheckCvv(b.Card.Cvv) == false {
+	if CheckCVV(b.Card.CVV) == false {
 		resp.Error = append(resp.Error, "Error CVV; ")
 	}
 	if CheckHolder(b.Card.Holder) == false {
 		resp.Error = append(resp.Error, "Error holder name; ")
 	}
-	if CheckOrderID(b.OrderId) == false {
+	if CheckOrderID(b.OrderID) == false {
 		resp.Error = append(resp.Error, "Error order ID; ")
 	}
 	if CheckAmount(b.Amount) == false {
@@ -34,27 +33,26 @@ func Validate(b Block_req) *Block_resp {
 	}
 
 	if len(resp.Error) == 0 {
-		resp.DealId = rand.Int()
+		resp.DealID = rand.New(rand.NewSource(time.Now().UnixNano())).Int()
 		resp.Amount = b.Amount
 	} else {
-		resp.DealId = -1
+		resp.DealID = -1
 	}
 	return &resp
 }
 
 //CheckMerchantId - метод проверки номера терминала
-func CheckMerchantId(mid int) bool {
-	if mid == 0 {
-		return false
-	} else {
-		return true
+func CheckMerchantID(mid int) (state bool) {
+	if mid != 0 && mid > 0 {
+		state = true
 	}
+	return
 }
 
-//CheckLuna - метод проверки Луна номера карты
-func CheckLuna(PAN string) bool {
+//CheckLuhn - метод проверки Луна номера карты
+func CheckLuhn(PAN string) (state bool) {
 	if PAN == "" {
-		return false
+		return
 	}
 	var (
 		sum     = 0
@@ -75,64 +73,53 @@ func CheckLuna(PAN string) bool {
 }
 
 //CheckDate - метод проверки даты
-func CheckDate(month, year int) bool {
+func CheckDate(month, year int) (state bool) {
 	if month != 0 && year != 0 && 1 <= month && month <= 12 {
 		dateNow := time.Now()
-		if (year > dateNow.Year()) || (year == dateNow.Year() && month > int(dateNow.Month())) {
-			return true
+		if (year > dateNow.Year()) || (year == dateNow.Year() && month >= int(dateNow.Month())) {
+			state = true
 		} else {
-			return false
+			state = false
 		}
-	} else {
-		return false
 	}
+	return
 }
 
 //CheckHolder - метод проверки держателя карты
-func CheckHolder(holder string) bool {
+func CheckHolder(holder string) (state bool) {
 	if holder != "" {
-		name := strings.Split(holder, " ")
-		wrong := 0
-		for _, v := range name {
-			if regexp.MustCompile(`^[A-Z]+$`).MatchString(v) {
-				wrong = 0
+		for _, v := range holder {
+			if (v >= 'A' && v <= 'Z') || v == ' ' {
+				state = true
 			} else {
-				wrong++
+				state = false
+				return
 			}
 		}
-		if wrong == 0 {
-			return true
-		} else {
-			return false
-		}
-	} else {
-		return false
 	}
+	return state
 }
 
 //CheckCVV - метод проверки CVV
-func CheckCvv(cvv int) bool {
-	if cvv != 0 && cvv >= 100 && cvv <= 999 {
+func CheckCVV(CVV int) (state bool) {
+	if CVV != 0 && (len(strconv.Itoa(CVV)) == 3 || len(strconv.Itoa(CVV)) == 4) {
 		return true
-	} else {
-		return false
 	}
+	return
 }
 
 //CheckOrderId - метод проверки номера заказа
-func CheckOrderID(orderId string) bool {
-	if orderId != "" {
+func CheckOrderID(orderID string) (state bool) {
+	if orderID != "" {
 		return true
-	} else {
-		return false
 	}
+	return
 }
 
 //CheckAmount - метод проверки суммы
-func CheckAmount(amount int) bool {
-	if amount != 0 && amount <= 100 && amount > 0 {
+func CheckAmount(amount int) (state bool) {
+	if amount != 0 && amount > 0 {
 		return true
-	} else {
-		return false
 	}
+	return
 }

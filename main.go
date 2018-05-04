@@ -10,10 +10,10 @@ import (
 
 //Переменные слайсов запросов Block и Charge
 var (
-	Block  []*lib.Block_resp
-	Charge []*lib.Charge_resp
+	Block  []*lib.BlockResponse
+	Charge []*lib.ChargeResponse
+	buf    = make(chan string, 10)
 )
-
 
 //main - задает пути приложения и выводит информацию по работе с приложением
 func main() {
@@ -26,7 +26,6 @@ func main() {
 	log.Fatal(http.ListenAndServe(":7000", nil))
 }
 
-
 //index - метод заглушка всегда возвращает 403
 func index(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, http.StatusForbidden)
@@ -35,21 +34,32 @@ func index(w http.ResponseWriter, req *http.Request) {
 //block - метод блокирует средства для списание на виртуальной карте
 func block(w http.ResponseWriter, req *http.Request) {
 	log.Print("Block method. ")
-	decoder := json.NewDecoder(req.Body)
+	reqCheck, err := json.Marshal(req.Body)
 
-	var reqBlock lib.Block_req
-	var respBlock *lib.Block_resp
-
-	err := decoder.Decode(&reqBlock)
+	fmt.Println(string(reqCheck))
 	if err != nil {
-		panic(err)
+		log.Print("Error then marshal JSON data")
 	}
-	defer req.Body.Close()
+	if json.Valid(reqCheck) == true {
+		decoder := json.NewDecoder(req.Body)
 
-	respBlock = lib.Validate(reqBlock)
-	if respBlock.DealId != -1 {
-		log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v",respBlock.DealId, respBlock.Amount, respBlock.Error)
-		Block = append(Block, respBlock)
+		var reqBlock lib.BlockRequest
+		var respBlock *lib.BlockResponse
+
+		err := decoder.Decode(&reqBlock)
+		if err != nil {
+			respBlock.Error = append(respBlock.Error, "Wrong structure of JSON. Rejected.")
+			//panic(err)
+		}
+		defer req.Body.Close()
+
+		respBlock = lib.Validate(reqBlock)
+		if respBlock.DealID != -1 {
+			log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v", respBlock.DealID, respBlock.Amount, respBlock.Error)
+			Block = append(Block, respBlock)
+		} else {
+			log.Print("JSON request isn't valid")
+		}
 	}
 }
 
@@ -58,8 +68,8 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	log.Print("Charge method.")
 	decoder := json.NewDecoder(req.Body)
 
-	var reqCharge lib.Charge_req
-	var respCharge lib.Charge_resp
+	var reqCharge lib.ChargeRequest
+	var respCharge lib.ChargeResponse
 
 	err := decoder.Decode(&reqCharge)
 	if err != nil {
@@ -67,25 +77,27 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	buf := make(chan string, 10)
-
 	for _, v := range Block {
-		if v.DealId != reqCharge.DealId {
+		if v.DealID != reqCharge.DealID {
 			respCharge.Status = "error"
 			respCharge.Error = "Charge not working. Do not have this dealID"
 			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealId, respCharge.Status, respCharge.Error)
+			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealID, respCharge.Status, respCharge.Error)
 		} else if v.Amount < reqCharge.Amount {
 			respCharge.Status = "error"
 			respCharge.Error = "Charge not working. Amount of charge is bigger than amount of block"
 			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealId, respCharge.Status, respCharge.Error)
+			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealID, respCharge.Status, respCharge.Error)
 		} else {
 			go doReq(buf)
 			respCharge.Status = <-buf
-			v.Amount -= reqCharge.Amount
+			if reqCharge.Amount < 0 {
+				v.Amount += reqCharge.Amount
+			} else {
+				v.Amount -= reqCharge.Amount
+			}
 			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, amount balance: %v", v.DealId, respCharge.Status, v.Amount)
+			log.Printf("DealID: %v, charge status: %s, amount balance: %v", v.DealID, respCharge.Status, v.Amount)
 		}
 	}
 }
