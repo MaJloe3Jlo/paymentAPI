@@ -34,33 +34,26 @@ func index(w http.ResponseWriter, req *http.Request) {
 //block - метод блокирует средства для списание на виртуальной карте
 func block(w http.ResponseWriter, req *http.Request) {
 	log.Print("Block method. ")
-	reqCheck, err := json.Marshal(req.Body)
+	decoder := json.NewDecoder(req.Body)
 
-	fmt.Println(string(reqCheck))
+	var reqBlock lib.BlockRequest
+	var respBlock *lib.BlockResponse
+
+	err := decoder.Decode(&reqBlock)
+	fmt.Println(err)
 	if err != nil {
-		log.Print("Error then marshal JSON data")
+		return
 	}
-	if json.Valid(reqCheck) == true {
-		decoder := json.NewDecoder(req.Body)
+	defer req.Body.Close()
 
-		var reqBlock lib.BlockRequest
-		var respBlock *lib.BlockResponse
-
-		err := decoder.Decode(&reqBlock)
-		if err != nil {
-			respBlock.Error = append(respBlock.Error, "Wrong structure of JSON. Rejected.")
-			//panic(err)
-		}
-		defer req.Body.Close()
-
-		respBlock = lib.Validate(reqBlock)
-		if respBlock.DealID != -1 {
-			log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v", respBlock.DealID, respBlock.Amount, respBlock.Error)
-			Block = append(Block, respBlock)
-		} else {
-			log.Print("JSON request isn't valid")
-		}
+	respBlock = lib.Validate(reqBlock)
+	if respBlock.DealID != -1 {
+		log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v", respBlock.DealID, respBlock.Amount, respBlock.Error)
+		Block = append(Block, respBlock)
+	} else {
+		log.Print("JSON request isn't valid")
 	}
+
 }
 
 //charge - метод списания средств с виртуальной карты авторизованных методом block
