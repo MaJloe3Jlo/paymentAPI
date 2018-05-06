@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 //Переменные слайсов запросов Block и Charge
@@ -37,6 +38,7 @@ func block(w http.ResponseWriter, req *http.Request) {
 	log.Print("Block method. ")
 	var reqBlock lib.BlockRequest
 	var respBlock *lib.BlockResponse
+	var m sync.Mutex
 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -90,7 +92,9 @@ func block(w http.ResponseWriter, req *http.Request) {
 	respBlock = lib.Validate(reqBlock)
 	if respBlock.DealID != -1 {
 		log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v", respBlock.DealID, respBlock.Amount, respBlock.Error)
+		m.Lock()
 		Block = append(Block, respBlock)
+		m.Unlock()
 		pretty, err := json.MarshalIndent(respBlock, "", "    ")
 		if err != nil {
 			log.Println(err.Error())
@@ -110,6 +114,8 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	log.Print("Charge method.")
 	var reqCharge lib.ChargeRequest
 	var respCharge lib.ChargeResponse
+	var m sync.Mutex
+
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Println(err.Error())
@@ -131,25 +137,30 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	for _, v := range Block {
-		if v.DealID != reqCharge.DealID {
-			respCharge.Status = "error"
-			respCharge.Error = "Charge not working. Do not have this dealID"
-			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealID, respCharge.Status, respCharge.Error)
-			pretty, err := json.MarshalIndent(respCharge, "", "    ")
-			if err != nil {
-				log.Println(err.Error())
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, string(pretty))
-			return
-		} else if v.Amount < reqCharge.Amount {
+	state, amount := findBlock(reqCharge.DealID)
+
+	if state == false {
+		respCharge.Status = "error"
+		respCharge.Error = "Charge not working. Do not have this dealID"
+		m.Lock()
+		Charge = append(Charge, &respCharge)
+		m.Unlock()
+		log.Printf("DealID: %v, charge status: %s, error description: %s", reqCharge.DealID, respCharge.Status, respCharge.Error)
+		pretty, err := json.MarshalIndent(respCharge, "", "    ")
+		if err != nil {
+			log.Println(err.Error())
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(pretty))
+	} else {
+		if amount < reqCharge.Amount {
 			respCharge.Status = "error"
 			respCharge.Error = "Charge not working. Amount of charge is bigger than amount of block"
+			m.Lock()
 			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealID, respCharge.Status, respCharge.Error)
+			m.Unlock()
+			log.Printf("DealID: %v, charge status: %s, error description: %s", reqCharge.DealID, respCharge.Status, respCharge.Error)
 			pretty, err := json.MarshalIndent(respCharge, "", "    ")
 			if err != nil {
 				log.Println(err.Error())
@@ -157,39 +168,32 @@ func charge(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, string(pretty))
-			return
 		} else {
 			go doReq(buf)
 			respCharge.Status = <-buf
 			if reqCharge.Amount < 0 {
 				respCharge.Status = "error"
 				respCharge.Error = "Charge not working. Amount < 0"
-				log.Printf("DealID: %v, charge status: %s, error description: %s", v.DealID, respCharge.Status, respCharge.Error)
+				log.Printf("DealID: %v, charge status: %s, error description: %s", reqCharge.DealID, respCharge.Status, respCharge.Error)
 				pretty, err := json.MarshalIndent(respCharge, "", "    ")
 				if err != nil {
 					log.Println(err.Error())
 				}
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, string(pretty))
-				return
-			} else {
-				v.Amount -= reqCharge.Amount
 			}
+			m.Lock()
 			Charge = append(Charge, &respCharge)
-			log.Printf("DealID: %v, charge status: %s, amount balance: %v", v.DealID, respCharge.Status, v.Amount)
+			m.Unlock()
+			log.Printf("DealID: %v, charge status: %s", reqCharge.DealID, respCharge.Status)
 			pretty, err := json.MarshalIndent(respCharge, "", "    ")
 			if err != nil {
 				log.Println(err.Error())
 			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
 			fmt.Fprint(w, string(pretty))
-			return
 		}
 	}
-	log.Println("Cannot find this DealID. Use operation method block before method charge.")
-	fmt.Fprint(w, "Cannot find this DealID. Use operation method block before method charge.")
 }
 
 //doReq - метод фоновой отправки запроса к ya.ru
@@ -201,4 +205,14 @@ func doReq(buf chan string) {
 	}
 	log.Println("Request to ya.ru " + req.Status)
 	buf <- req.Status
+}
+
+//findBlock - поиск среди всех совершенных операций Block
+func findBlock(dealCharge int) (state bool, amount int) {
+	for _, v := range Block {
+		if v.DealID == dealCharge {
+			return true, v.Amount
+		}
+	}
+	return state, amount
 }
