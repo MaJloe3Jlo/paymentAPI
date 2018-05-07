@@ -22,7 +22,9 @@ func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/block/", block)
 	http.HandleFunc("/charge/", charge)
-	log.Println("Server started at http://localhost:7000\nPOST: methods /block/, /charge/; contentType: application/json\ncontrol json-requests look in path ./jsons")
+	log.Println("Server started at http://localhost:7000")
+	log.Println("POST: methods /block/, /charge/; contentType: application/json")
+	log.Println("control json-requests look in path ./jsons")
 	log.Fatal(http.ListenAndServe(":7000", nil))
 }
 
@@ -110,8 +112,8 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	errUnmarshal := json.Unmarshal(body, &reqCharge)
 
 	if errUnmarshal != nil {
-		defer log.Print("JSON isn't correct: " + errUnmarshal.Error() + ". JSON example: " + `{"deal_id": 5577006791947779410, "amount": 9}`)
-		fmt.Fprint(w, "JSON isn't correct: "+errUnmarshal.Error()+". JSON example: "+`{"deal_id": 5577006791947779410, "amount": 9}`)
+		defer log.Print("JSON isn't correct: " + errUnmarshal.Error() + ". JSON example: " + `{"deal_id": 55779410, "amount": 9}`)
+		fmt.Fprint(w, "JSON isn't correct: "+errUnmarshal.Error()+". JSON example: "+`{"deal_id": 55779410, "amount": 9}`)
 		return
 	}
 	req.Body.Close()
