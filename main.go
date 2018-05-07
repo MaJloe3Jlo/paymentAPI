@@ -160,11 +160,14 @@ func charge(w http.ResponseWriter, req *http.Request) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				fmt.Fprint(w, string(pretty))
+				return
 			}
+			am := amountMinus(reqCharge.DealID, reqCharge.Amount)
 			m.Lock()
 			Charge = append(Charge, &respCharge)
 			m.Unlock()
-			log.Printf("DealID: %v, charge status: %s", reqCharge.DealID, respCharge.Status)
+
+			log.Printf("DealID: %v, left amount: %v charge status: %s", reqCharge.DealID, am, respCharge.Status)
 			pretty, err := json.MarshalIndent(respCharge, "", "    ")
 			if err != nil {
 				log.Println(err.Error())
@@ -194,4 +197,15 @@ func findBlock(dealCharge int) (state bool, amount int) {
 		}
 	}
 	return state, amount
+}
+
+//amountMinus - проверка суммы и уменьшение
+func amountMinus(dealID, amount int) (am int) {
+	for _, v := range Block {
+		if v.DealID == dealID {
+			v.Amount -= amount
+			am = v.Amount
+		}
+	}
+	return am
 }
