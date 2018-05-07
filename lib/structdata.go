@@ -2,7 +2,7 @@ package lib
 
 //BlockRequest структура запроса для авторизации платежа
 type BlockRequest struct {
-	MerchantContactID int `json:"merchant_contact_id,any"`
+	MerchantContactID int `json:"merchant_contact_id"`
 	Card              struct {
 		PAN    string `json:"pan"`
 		EMonth int    `json:"e_month"`

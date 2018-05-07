@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 )
 
@@ -43,53 +42,28 @@ func block(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		log.Println(err.Error())
+		fmt.Fprint(w, err.Error())
 	}
-	err = json.Unmarshal(body, &reqBlock)
-	if !strings.Contains(string(body), "merchant_contact_id") {
-		log.Print("JSON not correct: field merchant_contact_id doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field merchant_contact_id doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "card") {
-		log.Print("JSON not correct: field card doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field card doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "pan") {
-		log.Print("JSON not correct: field pan doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field pan doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "e_month") {
-		log.Print("JSON not correct: field e_month doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field e_monnth doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "e_year") {
-		log.Print("JSON not correct: field e_year doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field e_year doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "cvv") {
-		log.Print("JSON not correct: field cvv doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field cvv doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "holder") {
-		log.Print("JSON not correct: field holder doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field holder doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "order_id") {
-		log.Print("JSON not correct: field order_id doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field order_id doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "amount") {
-		log.Print("JSON not correct: field amount doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field amount doesn't exist")
+
+	state := lib.CheckBody(body, true)
+
+	if state != "" {
+		log.Println(state)
+		fmt.Fprint(w, state)
 		return
 	}
 
-	if err != nil {
-		defer log.Print("JSON isn't correct: " + err.Error() + ". JSON example: " + `{"merchant_contact_id": 1,"card": {"pan": "5469345678901234","e_month": 6,"e_year": 2020,"cvv": 332,"holder": "DMITRIY KLESTOV"},"order_id": "BuyMeTee123","amount": 99}`)
-		fmt.Fprint(w, "JSON isn't correct: "+err.Error()+". JSON example: "+`{"merchant_contact_id": 1,"card": {"pan": "5469345678901234","e_month": 6,"e_year": 2020,"cvv": 332,"holder": "DMITRIY KLESTOV"},"order_id": "BuyMeTee123","amount": 99}`)
+	errUnmarshal := json.Unmarshal(body, &reqBlock)
+
+	if errUnmarshal != nil {
+		log.Print("JSON isn't correct: " + errUnmarshal.Error() + ". JSON example: " + `{"merchant_contact_id": 1,"card": {"pan": "5469345678901234","e_month": 6,"e_year": 2020,"cvv": 332,"holder": "DMITRIY KLESTOV"},"order_id": "BuyMeTee123","amount": 99}`)
+		fmt.Fprint(w, "JSON isn't correct: "+errUnmarshal.Error()+". JSON example: "+`{"merchant_contact_id": 1,"card": {"pan": "5469345678901234","e_month": 6,"e_year": 2020,"cvv": 332,"holder": "DMITRIY KLESTOV"},"order_id": "BuyMeTee123","amount": 99}`)
+		return
 	}
-	defer req.Body.Close()
+	req.Body.Close()
 
 	respBlock = lib.Validate(reqBlock)
+
 	if respBlock.DealID != -1 {
 		log.Printf("Block status: deal ID: %v, amount: %v, error(if nil operation ok): %v", respBlock.DealID, respBlock.Amount, respBlock.Error)
 		m.Lock()
@@ -104,8 +78,13 @@ func block(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, string(pretty))
 	} else {
 		log.Print("JSON request isn't valid")
-		fmt.Fprint(w, "JSON request isn't valid")
-		respBlock.Error = append(respBlock.Error, err.Error())
+		pretty, errMI := json.MarshalIndent(respBlock, "", "    ")
+		if errMI != nil {
+			log.Println(errMI.Error())
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, string(pretty))
 	}
 }
 
@@ -120,26 +99,26 @@ func charge(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Println(err.Error())
 	}
-	err = json.Unmarshal(body, &reqCharge)
-	if !strings.Contains(string(body), "deal_id") {
-		log.Print("JSON not correct: field deal_id doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field deal_id doesn't exist")
-		return
-	} else if !strings.Contains(string(body), "amount") {
-		log.Print("JSON not correct: field amount doesn't exist")
-		fmt.Fprint(w, "JSON not correct: field amount doesn't exist")
+
+	state := lib.CheckBody(body, false)
+	if state != "" {
+		log.Println(state)
+		fmt.Fprint(w, state)
 		return
 	}
-	if err != nil {
-		defer log.Print("JSON isn't correct: " + err.Error() + ". JSON example: " + `{"deal_id": 5577006791947779410, "amount": 9}`)
-		fmt.Fprint(w, "JSON isn't correct: "+err.Error()+". JSON example: "+`{"deal_id": 5577006791947779410, "amount": 9}`)
+
+	errUnmarshal := json.Unmarshal(body, &reqCharge)
+
+	if errUnmarshal != nil {
+		defer log.Print("JSON isn't correct: " + errUnmarshal.Error() + ". JSON example: " + `{"deal_id": 5577006791947779410, "amount": 9}`)
+		fmt.Fprint(w, "JSON isn't correct: "+errUnmarshal.Error()+". JSON example: "+`{"deal_id": 5577006791947779410, "amount": 9}`)
 		return
 	}
-	defer req.Body.Close()
+	req.Body.Close()
 
-	state, amount := findBlock(reqCharge.DealID)
+	stateFind, amount := findBlock(reqCharge.DealID)
 
-	if state == false {
+	if stateFind == false {
 		respCharge.Status = "error"
 		respCharge.Error = "Charge not working. Do not have this dealID"
 		m.Lock()

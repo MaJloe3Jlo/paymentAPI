@@ -3,8 +3,42 @@ package lib
 import (
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 )
+
+func CheckBody(body []byte, flag bool) string {
+
+	switch flag {
+	case true:
+		if !strings.Contains(string(body), "merchant_contact_id") {
+			return "JSON not correct: field merchant_contact_id doesn't exist"
+		} else if !strings.Contains(string(body), "card") {
+			return "JSON not correct: field card doesn't exist"
+		} else if !strings.Contains(string(body), "pan") {
+			return "JSON not correct: field pan doesn't exist"
+		} else if !strings.Contains(string(body), "e_month") {
+			return "JSON not correct: field e_monnth doesn't exist"
+		} else if !strings.Contains(string(body), "e_year") {
+			return "JSON not correct: field e_year doesn't exist"
+		} else if !strings.Contains(string(body), "cvv") {
+			return "JSON not correct: field cvv doesn't exist"
+		} else if !strings.Contains(string(body), "holder") {
+			return "JSON not correct: field holder doesn't exist"
+		} else if !strings.Contains(string(body), "order_id") {
+			return "JSON not correct: field order_id doesn't exist"
+		} else if !strings.Contains(string(body), "amount") {
+			return "JSON not correct: field amount doesn't exist"
+		}
+	case false:
+		if !strings.Contains(string(body), "deal_id") {
+			return "JSON not correct: field deal_id doesn't exist"
+		} else if !strings.Contains(string(body), "amount") {
+			return "JSON not correct: field amount doesn't exist"
+		}
+	}
+	return ""
+}
 
 //Метод проверки всех полей метода Block
 func Validate(b BlockRequest) *BlockResponse {
@@ -12,6 +46,7 @@ func Validate(b BlockRequest) *BlockResponse {
 
 	if CheckMerchantID(b.MerchantContactID) == false {
 		resp.Error = append(resp.Error, "Error terminal ID; ")
+
 	}
 	if CheckLuhn(b.Card.PAN) == false {
 		resp.Error = append(resp.Error, "Error PAN number; ")
@@ -53,6 +88,11 @@ func CheckMerchantID(mid int) (state bool) {
 func CheckLuhn(PAN string) (state bool) {
 	if PAN == "" {
 		return
+	}
+	for _, v := range PAN {
+		if (v >= 'A' && v <= 'Z') || v == ' ' {
+			return
+		}
 	}
 	var (
 		sum     = 0
