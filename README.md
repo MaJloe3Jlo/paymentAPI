@@ -1,5 +1,5 @@
-`EN` 
-# Payment REST-API by m3 v.0.0.1 #
+ 
+# `EN` Payment REST-API by m3 v.0.0.1 #
 
 ## Task ##
 
@@ -20,9 +20,7 @@ For testing you can use curl or postman.
 
 Some tests attached in folder "test"
 
-
-`RU` 
-# Платежное REST-API от m3 вер.0.0.1
+# `RU` Платежное REST-API от m3 вер.0.0.1
 
 ## Задача ##
 
