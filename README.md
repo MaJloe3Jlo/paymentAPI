@@ -1,4 +1,4 @@
-`EN` #Payment REST-API by m3 v.0.0.1
+`EN` # Payment REST-API by m3 v.0.0.1
 
 ## Task ##
 
